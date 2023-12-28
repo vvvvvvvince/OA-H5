@@ -1,0 +1,201 @@
+<script>
+    //SAP批次 field176813   
+    //旧批次field118339
+        
+        WfForm.bindFieldChangeEvent("field118390", function (obj, id, value) {
+          var flagDouble = WfForm.getFieldValue("field118390");
+          if (flagDouble == 0) {
+            jQuery(".p0").hide();
+          } else {
+            jQuery(".p0").show();
+            alert("请打印表格签字后再进行领料操作");
+          }
+        });
+        WfForm.bindDetailFieldChangeEvent(//复制明细行
+          "field118366,field118367",
+          function (id, rowIndex, value) {
+            detailCopy();
+          }
+        );
+        WfForm.bindDetailFieldChangeEvent(
+          "field118352,field118349",
+          function (id, rowIndex, value) {
+            var rowArr = WfForm.getDetailAllRowIndexStr("detail_2").split(",");
+            for (let i = 0; i < rowArr.length; i++) {
+              var demandNum = WfForm.getFieldValue("field118352_" + rowIndex);
+              var actualNum = WfForm.getFieldValue("field118349_" + rowIndex);
+              if (demandNum != actualNum) {
+                WfForm.changeFieldAttr("field118391", 3);
+               break;
+              } else {
+                WfForm.changeFieldAttr("field118391", 4);
+              }
+            }
+          }
+        );
+    </script>
+    <script>
+      jQuery(document).ready(function () {
+        var SAP = WfForm.getFieldValue("field118389");
+        var maType = WfForm.getFieldValue("field118381");
+        console.log("物料类型" + maType);
+        if (maType == 9) {
+          console.log("success!");
+          WfForm.changeFieldAttr("field118389", 2);
+        }
+        //PEE类型，SAP单号非必填
+        console.log("SAP" + SAP);
+        if (SAP == "" && maType != 9) {
+          var sign = parseInt(WfForm.getDetailRowCount("detail_3"));
+          let dt2LH = WfForm.getFieldValue("field118343_0");
+          if (dt2LH == "") {
+            for (var i = 0; i < sign; i++) {
+              var materialNo = WfForm.getFieldValue("field118353_" + i);//实际发料表数据
+              var quantityDem = WfForm.getFieldValue("field118360_" + i);
+              var suggestBatch=WfForm.getFieldValue("field118357_"+i);
+              var whType=WfForm.getFieldValue("field118365_"+i);
+              var loType=WfForm.getFieldValue("field118358_"+i);
+              WfForm.addDetailRow("detail_2", {
+                field118343: { value: materialNo },
+                field118352: { value: quantityDem },
+                field118347:{value: suggestBatch},
+                field182809:{value: whType},
+                field182808:{value: loType}
+              });
+              console.log(i);
+            }
+          }
+          console.log("sign" + sign);
+        }
+      });
+      let rowArr = WfForm.getDetailAllRowIndexStr("detail_1").split(",");
+      var materArr = new Array();
+      for (var k = 0; k < rowArr.length; k++) {
+        var val1 = parseFloat(WfForm.getFieldValue("field176321_" + k)); //需求数量
+        var LH = WfForm.getFieldValue("field118321_" + k);
+        var specifyBatch = WfForm.getFieldValue("field118336_" + k);
+        var specifyBatchNum = WfForm.getFieldValue("field118341_" + k);
+        var materObj = {
+          lh: LH,
+          count: val1,
+        };
+        console.log("Success step2");
+        materArr.push(materObj);
+      }
+      console.log(JSON.stringify(materArr) + "materArr");
+      $.ajaxSetup({
+        async: false,
+      });
+      $.ajax({
+        url: "/dt_jsp/getPcListByLh.jsp", //请求的URL
+        timeout: 1000, //超时时间设置，单位毫秒
+        type: "get", //请求方式，get或post
+        data: "reqListStr=" + JSON.stringify(materArr), //请求所传参数，json格式
+        dataType: "json", //返回的数据格式
+        success: function (data) {
+          //请求成功的回调函数
+          console.log("返回值");
+          console.log(data);
+          var rowArr1 = WfForm.getDetailAllRowIndexStr("detail_3");
+          if (!rowArr1) {
+            for (var o in data.data) {
+              var objLH = data.data[o].lh;
+              var objBatch = data.data[o].PC1;
+              var objNvm = data.data[o].INVNUM;
+              var objPlant=data.data[o].Plant;
+              var WareH=data.data[o].WareHouse;
+              console.log(objLH + objBatch + objNvm+objPlant+WareH);
+              WfForm.addDetailRow("detail_3", {
+                field118353: {
+                  value: data.data[o].lh,
+                },
+                field118367: {
+                  value: data.data[o].PC1,
+                },
+                field118360: {
+                  value: data.data[o].INVNUM,
+                },
+                field176814:{
+                   value:data.data[o].Plant,
+                },
+                field118365:{
+                    value:data.data[o].WareH,
+                }
+              });
+            }
+          }
+        },
+        error: function (XMLHttpRequest, textStatus, errorThrown) {
+          if (textStatus == "timeout") {
+            console.log("加载超时，请重试");
+          } else {
+            console.log("出现异常");
+          }
+        },
+      });
+      $.ajaxSetup({
+        async: false,
+      });
+      //建议发料逻辑
+      function detailCopy() {
+        let sign = WfForm.getDetailRowCount("detail_3");
+        for (var i = 0; i < sign; i++) {
+          console.log(i + "sign" + sign);
+          var WHosType1 = WfForm.getFieldValue("field118335_" + i);
+          var batchDT1 = WfForm.getFieldValue("field118336_" + i);
+          if (WHosType1 == "0") {
+            console.log("仓库");
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: "7001",
+            });
+          } else if (WHosType1 == "1") {
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: "R001",
+            });
+          } else if (WHosType1 == "2") {
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: "PRT1",
+            });
+          } else if (WHosType1 == "3") {
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: "S001",
+            });
+          } else if (WHosType1 == "4") {
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: "SW01",
+            });
+          } else if (WHosType1 == "5") {
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: "RC01",
+            });
+          }
+          console.log("批次" + batchDT1);
+          if (batchDT1 != "") {
+            WfForm.changeFieldValue("field118357_" + i, {
+              value: batchDT1,
+            });
+          }
+          var WareHous = WfForm.getFieldValue("field118366_" + i);
+          var Batch3 = WfForm.getFieldValue("field118367_" + i);
+          var WHosTypeDt3 = WfForm.getFieldValue("field118365_" + i);
+          var BatchDt3 = WfForm.getFieldValue("field118357_" + i);
+          console.log("实际仓库" + WHosTypeDt3 + "实际批次" + BatchDt3);
+          if (WHosTypeDt3 == "") {
+            WfForm.changeFieldValue("field118365_" + i, {
+              value: WareHous,
+            });
+          }
+          console.log("批次3" + Batch3);
+          console.log("建议仓库3" + WareHous);
+          if (BatchDt3 == "") {
+            WfForm.changeFieldValue("field118357_" + i, {
+              value: Batch3,
+            });
+          }
+        }
+      }
+    </script>
+    
+    
+  
+  
